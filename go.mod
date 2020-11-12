@@ -1,3 +1,3 @@
-module qwalk
+module github.com/nikosgram/qwalk
 
 go 1.15
