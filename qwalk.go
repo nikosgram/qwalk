@@ -7,6 +7,11 @@ import (
 	"sync/atomic"
 )
 
+type TFsItemRequest struct {
+	AbsPath       string
+	SourceAbsPath string
+}
+
 type TFsItemInfo struct {
 	Info    os.FileInfo
 	AbsPath string
@@ -14,14 +19,14 @@ type TFsItemInfo struct {
 }
 
 func GenerateFsItemsSlice(
-	targetDirAbsPath string,
+	targetDirAbsPaths []string,
 	workerCount int,
 	filterHandler func(fsItemInfo TFsItemInfo) (bool, bool),
 ) []TFsItemInfo {
 	fsItemChan := make(chan TFsItemInfo)
 
 	go func() {
-		GenerateFsItems(targetDirAbsPath, fsItemChan, workerCount, filterHandler)
+		GenerateFsItems(targetDirAbsPaths, fsItemChan, workerCount, filterHandler)
 
 		close(fsItemChan)
 	}()
@@ -40,20 +45,19 @@ func GenerateFsItemsSlice(
 }
 
 func GenerateFsItems(
-	targetDirAbsPath string,
+	targetDirAbsPaths []string,
 	results chan TFsItemInfo,
 	workerCount int,
 	filterHandler func(fsItemInfo TFsItemInfo) (bool, bool),
 ) {
 	var incompleteRequestCount int64
 
-	workRequests := make(chan string)
-	bufferRequests := make(chan string)
+	workRequests := make(chan TFsItemRequest)
+	bufferRequests := make(chan TFsItemRequest)
 	done := make(chan struct{})
 
 	for i := 0; i < workerCount; i++ {
 		go DirListingWorker(
-			targetDirAbsPath,
 			workRequests,
 			bufferRequests,
 			results,
@@ -63,11 +67,16 @@ func GenerateFsItems(
 		)
 	}
 
-	var buffer []string
+	var buffer []TFsItemRequest
 
-	buffer = append(buffer, targetDirAbsPath)
+	for _, targetDirAbsPath := range targetDirAbsPaths {
+		buffer = append(buffer, struct {
+			AbsPath       string
+			SourceAbsPath string
+		}{AbsPath: targetDirAbsPath, SourceAbsPath: targetDirAbsPath})
 
-	atomic.AddInt64(&incompleteRequestCount, 1)
+		atomic.AddInt64(&incompleteRequestCount, 1)
+	}
 
 	for {
 		if len(buffer) > 0 {
@@ -90,9 +99,8 @@ exitFor:
 }
 
 func DirListingWorker(
-	targetDirAbsPath string,
-	workRequests chan string,
-	bufferRequests chan string,
+	workRequests chan TFsItemRequest,
+	bufferRequests chan TFsItemRequest,
 	results chan TFsItemInfo,
 	incompleteRequestCount *int64,
 	done chan struct{},
@@ -105,13 +113,13 @@ func DirListingWorker(
 			return
 		}
 
-		f, _ := os.Open(request)
+		f, _ := os.Open(request.AbsPath)
 		fsItems, err := f.Readdir(1)
 
 		for err != io.EOF && len(fsItems) > 0 {
 			fsItem := fsItems[0]
-			absPath := filepath.Join(request, fsItem.Name())
-			relPath, _ := filepath.Rel(targetDirAbsPath, absPath)
+			absPath := filepath.Join(request.AbsPath, fsItem.Name())
+			relPath, _ := filepath.Rel(request.SourceAbsPath, absPath)
 
 			fsi := TFsItemInfo{
 				fsItem,
@@ -140,7 +148,10 @@ func DirListingWorker(
 			if fsItem.IsDir() {
 				atomic.AddInt64(incompleteRequestCount, 1)
 
-				bufferRequests <- absPath
+				bufferRequests <- struct {
+					AbsPath       string
+					SourceAbsPath string
+				}{AbsPath: absPath, SourceAbsPath: request.SourceAbsPath}
 			}
 
 			fsItems, err = f.Readdir(1)
