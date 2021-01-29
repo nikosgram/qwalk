@@ -159,9 +159,7 @@ func DirListingWorker(
 
 		_ = f.Close()
 
-		atomic.AddInt64(incompleteRequestCount, -1)
-
-		if atomic.LoadInt64(incompleteRequestCount) == 0 {
+		if atomic.AddInt64(incompleteRequestCount, -1) == 0 {
 			done <- struct{}{}
 		}
 	}
