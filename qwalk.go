@@ -127,17 +127,19 @@ func DirListingWorker(
 				relPath,
 			}
 
+			allowRequest := true
 			allowResult := true
 
 			if filterHandler != nil {
-				allowRequest, _allowResult := filterHandler(fsi)
+				_allowRequest, _allowResult := filterHandler(fsi)
 
-				if !allowRequest {
+				if !_allowRequest && !_allowResult {
 					fsItems, err = f.Readdir(1)
 
 					continue
 				}
 
+				allowRequest = _allowRequest
 				allowResult = _allowResult
 			}
 
@@ -145,7 +147,7 @@ func DirListingWorker(
 				results <- fsi
 			}
 
-			if fsItem.IsDir() {
+			if allowRequest && fsItem.IsDir() {
 				atomic.AddInt64(incompleteRequestCount, 1)
 
 				bufferRequests <- struct {
