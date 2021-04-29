@@ -112,6 +112,9 @@ func Walk(
 		}
 	}
 exitFor:
+	close(workRequests)
+	close(bufferRequests)
+	close(done)
 }
 
 func WalkWorker(
