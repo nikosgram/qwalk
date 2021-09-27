@@ -4,59 +4,39 @@ import (
 	"io"
 	"os"
 	"path/filepath"
+	"sync"
 	"sync/atomic"
 )
 
-type TFsItemInfo struct {
+type ItemInfo struct {
 	Info os.FileInfo
 	Path string // Absolute Path
 }
 
-type FilterHandler func(info TFsItemInfo) (bool, bool)
+type FilterHandler func(info ItemInfo) (bool, bool)
 
-type ResultHandler func(info TFsItemInfo)
+type ResultHandler func(info ItemInfo)
 
 //goland:noinspection ALL
 func WalkSlice(
 	targetDirAbsPaths []string,
 	filterHandler FilterHandler,
 	workerCount int,
-) []TFsItemInfo {
-	fsItemChan := make(chan TFsItemInfo)
+) (results []ItemInfo) {
+	resultsMutex := sync.Mutex{}
 
-	go func() {
-		WalkChannel(targetDirAbsPaths, filterHandler, workerCount, fsItemChan)
-
-		close(fsItemChan)
-	}()
-
-	returnedFsItems := make([]TFsItemInfo, 0, (1<<16)-1)
-
-	for {
-		fsItemInfo, ok := <-fsItemChan
-
-		if !ok {
-			return returnedFsItems
-		}
-
-		returnedFsItems = append(returnedFsItems, fsItemInfo)
-	}
-}
-
-func WalkChannel(
-	targetDirAbsPaths []string,
-	filterHandler FilterHandler,
-	workerCount int,
-	results chan TFsItemInfo,
-) {
 	Walk(
 		targetDirAbsPaths,
 		filterHandler,
 		workerCount,
-		func(info TFsItemInfo) {
-			results <- info
+		func(info ItemInfo) {
+			resultsMutex.Lock()
+			results = append(results, info)
+			resultsMutex.Unlock()
 		},
 	)
+
+	return
 }
 
 func Walk(
@@ -139,7 +119,7 @@ func WalkWorker(
 			fsItem := fsItems[0]
 			absPath := filepath.Join(request, fsItem.Name())
 
-			fsi := TFsItemInfo{
+			fsi := ItemInfo{
 				fsItem,
 				absPath,
 			}
