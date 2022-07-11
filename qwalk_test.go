@@ -9,22 +9,19 @@ import (
 func TestWalk(t *testing.T) {
 	qwalk.Walk(
 		[]string{"."},
-		func(info qwalk.ItemInfo) (bool, bool) {
-			return true, true
+		func(info qwalk.ItemInfo) bool {
+			t.Log(info.Path)
+
+			return true
 		},
 		runtime.NumCPU(),
-		func(info qwalk.ItemInfo) {
-			t.Log(info.Path)
-		},
 	)
 }
 
 func TestWalkSlice(t *testing.T) {
 	slice := qwalk.WalkSlice(
 		[]string{"."},
-		func(info qwalk.ItemInfo) (bool, bool) {
-			return true, true
-		},
+		nil,
 		runtime.NumCPU(),
 	)
 

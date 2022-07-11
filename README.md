@@ -22,15 +22,16 @@ func main() {
 	// print all no-directory items
 	qwalk.Walk(
 		[]string{"."},
-		func(info qwalk.ItemInfo) (bool, bool) {
+		func(info qwalk.ItemInfo) bool {
+			// print only from no-dir items
+			if !info.Info.IsDir() {
+				fmt.Println(info.Path)
+			}
+
 			// allow dir-listing on all directories
-			// allow results only from no-dir items
-			return true, !info.Info.IsDir()
+			return true
 		},
 		runtime.NumCPU(),
-		func(info qwalk.ItemInfo) {
-			fmt.Println(info.Path)
-        },
 	)
 }
 ```

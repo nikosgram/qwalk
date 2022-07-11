@@ -10,11 +10,8 @@ func BenchmarkWalk(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		qwalk.Walk(
 			[]string{"."},
-			func(info qwalk.ItemInfo) (bool, bool) {
-				return true, true
-			},
+			nil,
 			runtime.NumCPU(),
-			func(info qwalk.ItemInfo) {},
 		)
 	}
 }
@@ -23,9 +20,7 @@ func BenchmarkWalkSlice(b *testing.B) {
 	for i := 0; i < b.N; i++ {
 		_ = qwalk.WalkSlice(
 			[]string{"."},
-			func(info qwalk.ItemInfo) (bool, bool) {
-				return true, true
-			},
+			nil,
 			runtime.NumCPU(),
 		)
 	}
