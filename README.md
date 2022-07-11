@@ -2,7 +2,7 @@
 
 Golang fastest directory walking method
 
-Based on https://github.com/feyrob/godirlist
+Got the idea of creating this library based on @feyrob's godirlist repo: https://github.com/feyrob/godirlist
 
 ## Examples
 
