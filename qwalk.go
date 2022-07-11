@@ -13,9 +13,7 @@ type ItemInfo struct {
 	Path string // Absolute Path
 }
 
-type FilterHandler func(info ItemInfo) (bool, bool)
-
-type ResultHandler func(info ItemInfo)
+type FilterHandler func(info ItemInfo) bool
 
 //goland:noinspection ALL
 func WalkSlice(
@@ -27,13 +25,18 @@ func WalkSlice(
 
 	Walk(
 		targetDirAbsPaths,
-		filterHandler,
-		workerCount,
-		func(info ItemInfo) {
+		func(info ItemInfo) bool {
+			if !filterHandler(info) {
+				return false
+			}
+
 			resultsMutex.Lock()
 			results = append(results, info)
 			resultsMutex.Unlock()
+
+			return true
 		},
+		workerCount,
 	)
 
 	return
@@ -43,7 +46,6 @@ func Walk(
 	targetDirAbsPaths []string,
 	filterHandler FilterHandler,
 	workerCount int,
-	handler ResultHandler,
 ) {
 	var incompleteRequestCount int64
 
@@ -58,7 +60,6 @@ func Walk(
 			filterHandler,
 			&incompleteRequestCount,
 			done,
-			handler,
 		)
 	}
 
@@ -103,7 +104,6 @@ func WalkWorker(
 	filterHandler FilterHandler,
 	incompleteRequestCount *int64,
 	done chan struct{},
-	handler ResultHandler,
 ) {
 	for {
 		request, ok := <-workRequests
@@ -125,23 +125,17 @@ func WalkWorker(
 			}
 
 			allowRequest := true
-			allowResult := true
 
 			if filterHandler != nil {
-				_allowRequest, _allowResult := filterHandler(fsi)
+				_allowRequest := filterHandler(fsi)
 
-				if !_allowRequest && !_allowResult {
+				if !_allowRequest {
 					fsItems, err = f.Readdir(1)
 
 					continue
 				}
 
 				allowRequest = _allowRequest
-				allowResult = _allowResult
-			}
-
-			if allowResult {
-				handler(fsi)
 			}
 
 			if allowRequest && fsItem.IsDir() {
