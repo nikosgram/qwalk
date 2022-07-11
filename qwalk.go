@@ -26,7 +26,7 @@ func WalkSlice(
 	Walk(
 		targetDirAbsPaths,
 		func(info ItemInfo) bool {
-			if !filterHandler(info) {
+			if filterHandler != nil && !filterHandler(info) {
 				return false
 			}
 
